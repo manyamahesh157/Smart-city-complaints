@@ -6,7 +6,7 @@ const DB_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/smartcity';
 
 async function seedDatabase() {
   try {
-    await mongoose.connect(DB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+    await mongoose.connect(DB_URI);
     console.log('Connected to Database for seeding...');
 
     // Clear existing
@@ -18,7 +18,9 @@ async function seedDatabase() {
        name: 'Global Supervisor Admin',
        email: 'admin@smartcity.gov',
        password: 'password123', // In prod: bcrypt hash
-       role: 'admin'
+       role: 'admin',
+       authorityLevel: 'Admin',
+       isVerified: true
     });
     await adminUser.save();
 
@@ -26,7 +28,9 @@ async function seedDatabase() {
        name: 'Director of Roads & Highways',
        email: 'roads@smartcity.gov',
        password: 'password123',
-       role: 'authority'
+       role: 'authority',
+       authorityLevel: 'Officer',
+       isVerified: true
     });
     await roadsAuthUser.save();
 
@@ -34,7 +38,9 @@ async function seedDatabase() {
       name: 'Director of Sanitation & Water',
       email: 'water@smartcity.gov',
       password: 'password123',
-      role: 'authority'
+      role: 'authority',
+      authorityLevel: 'Officer',
+      isVerified: true
    });
    await waterAuthUser.save();
 

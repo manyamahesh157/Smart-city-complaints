@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Base API configuration ensuring it hits Localhost 5000 in dev
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+// Base API configuration ensuring it hits Localhost 5000 via proxy rewrite
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_URL,

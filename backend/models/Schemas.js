@@ -8,6 +8,10 @@ const UserSchema = new Schema({
   phone: { type: String },
   password: { type: String, required: true }, // Hashed
   role: { type: String, enum: ['citizen', 'authority', 'admin'], default: 'citizen' },
+  authorityLevel: { type: String, enum: ['Admin', 'Officer', 'Viewer'] },
+  isVerified: { type: Boolean, default: false }, // Useful for Authorities to be approved
+  otpHash: { type: String },
+  otpExpiry: { type: Date },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -61,11 +65,23 @@ const DuplicateReportSchema = new Schema({
   similarityScore: Number
 });
 
+// 7. LoginLogs Schema
+const LoginLogSchema = new Schema({
+  emailAttempted: String, // Useful for failed logins where user might not exist
+  userId: { type: Schema.Types.ObjectId, ref: 'User' },
+  ipAddress: String,
+  userAgent: String,
+  status: { type: String, enum: ['success', 'failed'] },
+  failureReason: String,
+  timestamp: { type: Date, default: Date.now }
+});
+
 module.exports = {
   User: mongoose.model('User', UserSchema),
   Complaint: mongoose.model('Complaint', ComplaintSchema),
   Department: mongoose.model('Department', DepartmentSchema),
   ComplaintLog: mongoose.model('ComplaintLog', ComplaintLogSchema),
   Notification: mongoose.model('Notification', NotificationSchema),
-  DuplicateReport: mongoose.model('DuplicateReport', DuplicateReportSchema)
+  DuplicateReport: mongoose.model('DuplicateReport', DuplicateReportSchema),
+  LoginLog: mongoose.model('LoginLog', LoginLogSchema)
 };
