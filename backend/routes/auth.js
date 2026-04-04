@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-// const bcrypt = require('bcryptjs'); // Assuming dependency installed
+const bcrypt = require('bcryptjs');
 const { User } = require('../models/Schemas');
 
 // ENV placeholder
@@ -22,14 +22,14 @@ router.post('/register', async (req, res) => {
     }
 
     // Hash password 
-    // const salt = await bcrypt.genSalt(10);
-    // const hashedPassword = await bcrypt.hash(password, salt);
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
     user = new User({
       name,
       email,
       phone,
-      password: password, // Store hashedPassword in prod
+      password: hashedPassword,
       role: 'citizen'
     });
 
@@ -59,8 +59,7 @@ router.post('/login', async (req, res) => {
 
      if (!user) return res.status(400).json({ success: false, msg: 'Invalid Credentials' });
 
-     // const isMatch = await bcrypt.compare(password, user.password);
-     const isMatch = (password === user.password);
+     const isMatch = await bcrypt.compare(password, user.password);
 
      if (!isMatch) return res.status(400).json({ success: false, msg: 'Invalid Credentials' });
 

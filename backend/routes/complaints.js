@@ -61,28 +61,23 @@ router.post('/', upload.fields([
 
     // 1. Verification Agent - check for spam and duplicates
     const verificationData = await verificationAgent({ title, description, imageUrl, location: parsedLocation });
+
+    let category, priority, route;
+
     if (verificationData.isSpam) {
-      const io = req.app.get('socketio');
-      if (io) {
-         io.emit('new_complaint_ai_processed', {
-            id: 'FAKE-' + Date.now().toString().slice(-4),
-            category: 'Spam / Fake Detected',
-            priority: 'Rejected',
-            location,
-            status: 'Blocked'
-         });
-      }
-      return res.status(403).json({ success: false, msg: 'Submission blocked due to policy violations or spam detection.' });
+      category = 'fake';
+      priority = 'rejected';
+      route = { mappedDeptStr: 'none', status: 'blocked' };
+    } else {
+      // 2. Classification Agent - determine category
+      category = await classificationAgent(description);
+
+      // 3. Priority Agent - assess severity
+      priority = await priorityAgent(description, category, parsedLocation);
+
+      // 4. Routing Agent - map to corresponding authoritative department
+      route = await routingAgent(category, parsedLocation);
     }
-
-    // 2. Classification Agent - determine category
-    const category = await classificationAgent(description);
-
-    // 3. Priority Agent - assess severity
-    const priority = await priorityAgent(description, category, parsedLocation);
-
-    // 4. Routing Agent - map to corresponding authoritative department
-    const route = await routingAgent(category, parsedLocation);
 
     // 5. Database Commit
     const newComplaint = new Complaint({
@@ -93,8 +88,7 @@ router.post('/', upload.fields([
        voiceText,
        category,
        priority,
-       status: 'submitted' 
-       // Optionally map mappedDept directly via ObjectID lookup: departmentAssigned: route.mappedDeptId
+       status: verificationData.isSpam ? 'rejected' : 'submitted' 
     });
 
     const savedComplaint = await newComplaint.save();
@@ -102,8 +96,8 @@ router.post('/', upload.fields([
     // 6. Log Transaction
     await new ComplaintLog({
        complaintId: savedComplaint._id,
-       status: 'submitted',
-       remarks: `Auto-Processed: Categorized as ${category}, flagged as ${priority} priority. Verified score: ${verificationData.similarityScore}`
+       status: verificationData.isSpam ? 'rejected' : 'submitted',
+       remarks: verificationData.isSpam ? `Auto-Processed: Blocked as spam. Verified score: ${verificationData.similarityScore}` : `Auto-Processed: Categorized as ${category}, flagged as ${priority} priority. Verified score: ${verificationData.similarityScore}`
     }).save();
 
     // 7. Emit Real-time Update via WebSockets
@@ -111,10 +105,18 @@ router.post('/', upload.fields([
     if (io) {
       io.emit('new_complaint_ai_processed', {
          id: savedComplaint._id,
-         category,
-         priority,
+         category: savedComplaint.category,
+         priority: savedComplaint.priority,
          location: parsedLocation,
          status: savedComplaint.status
+      });
+    }
+
+    if (verificationData.isSpam) {
+      return res.status(403).json({ 
+        success: false, 
+        msg: 'Submission blocked due to policy violations or spam detection.',
+        data: savedComplaint 
       });
     }
 

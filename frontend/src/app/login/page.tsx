@@ -44,7 +44,7 @@ export default function Login() {
         </h2>
         <p className="mt-2 text-center text-sm text-zinc-400">
           Or{" "}
-          <a href="#" className="font-medium text-blue-500 hover:text-blue-400">
+          <a href="/register" className="font-medium text-blue-500 hover:text-blue-400">
             register to report an issue
           </a>
         </p>

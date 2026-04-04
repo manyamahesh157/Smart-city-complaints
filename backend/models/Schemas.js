@@ -16,9 +16,9 @@ const ComplaintSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User' },
   title: { type: String, required: true },
   description: { type: String, required: true },
-  category: { type: String, enum: ['roads', 'water', 'sanitation', 'electricity', 'others'] },
-  priority: { type: String, enum: ['low', 'medium', 'high', 'critical'] },
-  status: { type: String, enum: ['submitted', 'accepted', 'in progress', 'resolved'], default: 'submitted' },
+  category: { type: String, enum: ['roads', 'water', 'sanitation', 'electricity', 'others', 'fake'] },
+  priority: { type: String, enum: ['low', 'medium', 'high', 'critical', 'rejected'] },
+  status: { type: String, enum: ['submitted', 'accepted', 'in progress', 'resolved', 'rejected'], default: 'submitted' },
   location: {
     latitude: Number,
     longitude: Number,
