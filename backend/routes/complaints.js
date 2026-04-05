@@ -11,8 +11,11 @@ const {
   priorityAgent,
   verificationAgent,
   routingAgent,
-  speechToTextAgent
+  speechToTextAgent,
+  visionProcessingAgent
 } = require('../agents/aiAgents');
+
+const { User } = require('../models/Schemas');
 
 /**
  * @route POST /api/complaints
@@ -61,18 +64,18 @@ router.post('/', upload.fields([
 
     // 1. Verification Agent - check for spam and duplicates
     const verificationData = await verificationAgent({ title, description, imageUrl, location: parsedLocation });
-    if (verificationData.isSpam) {
+    if (verificationData.authenticityScore < 40 || verificationData.isSpam) {
       const io = req.app.get('socketio');
       if (io) {
          io.emit('new_complaint_ai_processed', {
             id: 'FAKE-' + Date.now().toString().slice(-4),
             category: 'Spam / Fake Detected',
             priority: 'Rejected',
-            location,
-            status: 'Blocked'
+            location: parsedLocation,
+            status: 'rejected'
          });
       }
-      return res.status(403).json({ success: false, msg: 'Submission blocked due to policy violations or spam detection.' });
+      return res.status(403).json({ success: false, msg: 'Submission blocked: Authenticity Score extremely low (' + verificationData.authenticityScore + ').' });
     }
 
     // 2. Classification Agent - determine category
@@ -84,15 +87,31 @@ router.post('/', upload.fields([
     // 4. Routing Agent - map to corresponding authoritative department
     const route = await routingAgent(category, parsedLocation);
 
+    // 4.5 Vision Processing Agent - Estimate damage parameters if image exists
+    let aiCostEstimate = 'Pending Image Upload';
+    let aiDamageDimensions = 'N/A';
+    if (imageUrl) {
+      const visionResult = await visionProcessingAgent(imageUrl, category);
+      aiCostEstimate = visionResult.aiCostEstimate;
+      aiDamageDimensions = visionResult.aiDamageDimensions;
+    }
+
     // 5. Database Commit
+    const ticketId = 'TKT-' + Date.now().toString().slice(-6) + Math.random().toString(36).substring(2, 5).toUpperCase();
+
     const newComplaint = new Complaint({
+       userId: req.user ? req.user.id : null, // If submitted authenticated
+       ticketId,
+       authenticityScore: verificationData.authenticityScore,
        title,
        description,
        location: parsedLocation,
        imageUrl,
        voiceText,
-       category,
+       category: route.mappedDeptStr || category,
        priority,
+       aiCostEstimate,
+       aiDamageDimensions,
        status: 'submitted' 
        // Optionally map mappedDept directly via ObjectID lookup: departmentAssigned: route.mappedDeptId
     });
@@ -111,10 +130,14 @@ router.post('/', upload.fields([
     if (io) {
       io.emit('new_complaint_ai_processed', {
          id: savedComplaint._id,
+         ticketId: savedComplaint.ticketId,
          category,
          priority,
          location: parsedLocation,
-         status: savedComplaint.status
+         status: savedComplaint.status,
+         authenticityScore: savedComplaint.authenticityScore,
+         aiCostEstimate: savedComplaint.aiCostEstimate,
+         aiDamageDimensions: savedComplaint.aiDamageDimensions
       });
     }
 
@@ -157,9 +180,14 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const complaint = await Complaint.findById(req.params.id);
-    if (!complaint) return res.status(404).json({ success: false, msg: 'Complaint ID not found' });
+    let complaint;
+    if (req.params.id.match(/^[0-9a-fA-F]{24}$/)) {
+      complaint = await Complaint.findById(req.params.id);
+    } else {
+      complaint = await Complaint.findOne({ ticketId: req.params.id });
+    }
     
+    if (!complaint) return res.status(404).json({ success: false, msg: 'Complaint not found with this tracking ID' });
     // Fetch logs
     const logs = await ComplaintLog.find({ complaintId: complaint._id }).sort({ timestamp: 1 });
     
@@ -174,18 +202,36 @@ router.get('/:id', async (req, res) => {
  * @desc Update complaint status (For Authorities only)
  * @access Authority
  */
-router.put('/:id/status', async (req, res) => {
+router.put('/:id/status', upload.single('proofImage'), async (req, res) => {
   try {
-     const { status, remarks, updatedBy } = req.body;
+     const { status, remarks, updatedBy, notes } = req.body;
+     const updateData = { status, updatedAt: Date.now() };
+     
+     if (req.file || notes) {
+        updateData.resolutionProof = {};
+        if (req.file) updateData.resolutionProof.imageUrl = req.file.path;
+        if (notes) updateData.resolutionProof.notes = notes;
+     }
+
      const complaint = await Complaint.findByIdAndUpdate(
        req.params.id, 
-       { status, updatedAt: Date.now() }, 
+       updateData, 
        { new: true }
      );
      
      if(complaint) {
        await new ComplaintLog({ complaintId: complaint._id, status, remarks, updatedBy }).save();
        
+       // Civic Rewards Gamification System
+       if (status === 'resolved' && complaint.userId) {
+          const user = await User.findById(complaint.userId);
+          if (user) {
+             user.civicPoints = (user.civicPoints || 0) + 10; // Award 10 points for resolved issue
+             await user.save();
+             console.log(`GAMIFICATION: Awarded 10 Civic Points to user ${user.email} for resolving complaint!`);
+          }
+       }
+
        // Emit socket event for authorities to track live
        const io = req.app.get('socketio');
        if (io) io.emit('complaint_status_changed', { id: complaint._id, status });

@@ -12,6 +12,7 @@ const UserSchema = new Schema({
   isVerified: { type: Boolean, default: false }, // Useful for Authorities to be approved
   otpHash: { type: String },
   otpExpiry: { type: Date },
+  civicPoints: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -20,9 +21,15 @@ const ComplaintSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User' },
   title: { type: String, required: true },
   description: { type: String, required: true },
-  category: { type: String, enum: ['roads', 'water', 'sanitation', 'electricity', 'others'] },
+  category: { type: String, enum: ['roads', 'water', 'sanitation', 'electricity', 'others', 'Roads & Infrastructure', 'Water Supply', 'Waste Management', 'Public Safety', 'Electricity'] },
   priority: { type: String, enum: ['low', 'medium', 'high', 'critical'] },
-  status: { type: String, enum: ['submitted', 'accepted', 'in progress', 'resolved'], default: 'submitted' },
+  ticketId: { type: String, unique: true },
+  authenticityScore: { type: Number },
+  status: { type: String, enum: ['submitted', 'accepted', 'in progress', 'resolved', 'closed', 'rejected'], default: 'submitted' },
+  resolutionProof: {
+    imageUrl: String,
+    notes: String
+  },
   location: {
     latitude: Number,
     longitude: Number,
@@ -30,6 +37,8 @@ const ComplaintSchema = new Schema({
   },
   imageUrl: String,
   voiceText: String,
+  aiCostEstimate: String,
+  aiDamageDimensions: String,
   departmentAssigned: { type: Schema.Types.ObjectId, ref: 'Department' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }

@@ -12,6 +12,7 @@ export default function SubmitComplaint() {
   const [voiceFile, setVoiceFile] = useState<File | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [location, setLocation] = useState<{ lat: string; lng: string } | null>(null);
+  const [manualAddress, setManualAddress] = useState("");
 
   const detectLocation = () => {
      if ("geolocation" in navigator) {
@@ -36,6 +37,8 @@ export default function SubmitComplaint() {
       if (location) {
          formData.append("location[latitude]", location.lat); 
          formData.append("location[longitude]", location.lng);
+      } else if (manualAddress) {
+         formData.append("location[address]", manualAddress);
       } else {
          formData.append("location[latitude]", "40.7128"); 
          formData.append("location[longitude]", "-74.0060");
@@ -49,13 +52,14 @@ export default function SubmitComplaint() {
       });
 
       if (response.data.success) {
-         const trackingId = response.data.data._id;
-         alert(`Success! Generated Ticket ID processing natively: ${trackingId}`);
+         const trackingId = response.data.data.ticketId;
+         alert(`Success! Your Official Tracking Ticket ID is: ${trackingId}`);
          setTitle("");
          setDescription("");
          setVoiceFile(null);
          setImageFile(null);
          setLocation(null);
+         setManualAddress("");
       }
     } catch (err: any) {
       alert("Submission blocked: " + (err.response?.data?.msg || err.message));
@@ -144,19 +148,48 @@ export default function SubmitComplaint() {
               <span className="text-sm text-zinc-400">{voiceFile ? 'Audio Attached' : 'Voice Memo'}</span>
             </button>
             
-            <button type="button" onClick={detectLocation} className="flex flex-col items-center justify-center gap-2 bg-zinc-950/50 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-800 transition-all group">
+            <button type="button" onClick={detectLocation} className="flex flex-col items-center justify-center gap-2 bg-zinc-950/50 border border-zinc-800 rounded-xl p-4 hover:bg-zinc-800 transition-all group relative">
               <MapPin className={`w-6 h-6 ${location ? 'text-blue-400' : 'text-emerald-400'} group-hover:scale-110 transition-transform`} />
-              <span className="text-sm text-zinc-400">{location ? `Lat: ${location.lat}` : 'Detect Location'}</span>
+              <span className="text-sm text-zinc-400">{location ? `Detected` : 'Auto-Detect Location'}</span>
             </button>
             
           </div>
 
-          {/* Map Placeholder */}
-          <div className="h-48 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center overflow-hidden relative">
-            <div className="absolute inset-0 bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=40.7128,-74.0060&zoom=13&size=800x400&sensor=false')] opacity-20 bg-cover bg-center grayscale" />
-            <span className="relative z-10 text-zinc-500 text-sm flex items-center gap-2">
-              <MapPin className="w-4 h-4" /> Map View Unavailable
-            </span>
+          {!location && (
+            <div>
+              <label className="block text-sm font-medium text-zinc-300 mb-2">Location Detection Failed? Enter Address Manually</label>
+              <input
+                value={manualAddress}
+                onChange={(e) => setManualAddress(e.target.value)}
+                type="text"
+                placeholder="e.g. 123 Main St, Near the park"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-zinc-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder-zinc-600 transition-all"
+              />
+            </div>
+          )}
+
+          {/* Map View */}
+          <div className="h-48 rounded-xl bg-zinc-950 border border-zinc-800 flex flex-col items-center justify-center overflow-hidden relative">
+            {location ? (
+               <iframe 
+                 width="100%" 
+                 height="100%" 
+                 frameBorder="0" 
+                 src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(location.lng)-0.01},${parseFloat(location.lat)-0.01},${parseFloat(location.lng)+0.01},${parseFloat(location.lat)+0.01}&layer=mapnik&marker=${location.lat},${location.lng}`}
+                 className="absolute inset-0 z-0"
+               ></iframe>
+            ) : manualAddress ? (
+               <span className="relative z-10 text-green-500 text-sm flex items-center gap-2">
+                 <MapPin className="w-4 h-4" /> Custom Address Registered: {manualAddress}
+               </span>
+            ) : (
+              <>
+                 <div className="absolute inset-0 bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=40.7128,-74.0060&zoom=13&size=800x400&sensor=false')] opacity-20 bg-cover bg-center grayscale" />
+                 <span className="relative z-10 text-zinc-500 text-sm flex items-center gap-2">
+                   <MapPin className="w-4 h-4" /> Map View Unavailable
+                 </span>
+              </>
+            )}
           </div>
 
           {/* Submit Action */}

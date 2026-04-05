@@ -235,4 +235,21 @@ const authorizeRoles = (...roles) => {
    }
 };
 
+/**
+ * @route GET /api/auth/leaderboard
+ * @desc Get top citizens by civic points
+ * @access Public
+ */
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const topCitizens = await User.find({ role: 'citizen' })
+                                  .sort({ civicPoints: -1 })
+                                  .limit(10)
+                                  .select('name civicPoints createdAt');
+    res.json({ success: true, count: topCitizens.length, data: topCitizens });
+  } catch (error) {
+    res.status(500).json({ success: false, msg: 'Server error fetching leaderboard' });
+  }
+});
+
 module.exports = { router, protect, authorizeRoles };
