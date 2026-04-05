@@ -49,9 +49,11 @@ router.post('/', upload.fields([
       description = description ? `${description} (Voice Transcript: ${voiceText})` : `(Voice Transcript: ${voiceText})`;
     }
     
+    let originalImageName = null;
     // Check if an image was uploaded
     if (req.files && req.files['image']) {
       imageUrl = req.files['image'][0].path; // Mapping relative file system path
+      originalImageName = req.files['image'][0].originalname;
     }
 
     // Ensure description meets minimum length if relying purely on rules fallback in verification agent
@@ -60,7 +62,7 @@ router.post('/', upload.fields([
     }
 
     // 1. Verification Agent - check for spam and duplicates
-    const verificationData = await verificationAgent({ title, description, imageUrl, location: parsedLocation });
+    const verificationData = await verificationAgent({ title, description, imageUrl, originalImageName, location: parsedLocation });
 
     let category, priority, route;
 

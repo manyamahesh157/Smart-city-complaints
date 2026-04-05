@@ -75,7 +75,7 @@ async function priorityAgent(text, category, location) {
  * 3. Verification Agent
  * - Detects fake/spam complaints (simulated basic CV and LLM parsing)
  */
-async function verificationAgent({ title, description, imageUrl, location }) {
+async function verificationAgent({ title, description, imageUrl, originalImageName, location }) {
   console.log("VERIFICATION AGENT: Validating data...");
   let isSpam = false;
   let similarityScore = Math.random(); 
@@ -83,22 +83,57 @@ async function verificationAgent({ title, description, imageUrl, location }) {
   try {
     if (!process.env.OPENAI_API_KEY) throw new Error("No API Key");
     
+    const systemPrompt = "Determine if this complaint is spam, fake, or abusive. If an image is provided, cross-reference it with the description. If the image completely mismatches the description (for example, the text describes a broken pipe but the image shows a generic unrelated photo), or if the complaint situation is absurd, flag it as fake. Reply with ONLY 'true' (if fake/spam) or 'false' (if valid).";
+
+    let userContent = [
+      { type: "text", text: `Title: ${title}\nDesc: ${description}` }
+    ];
+
+    if (imageUrl && fs.existsSync(imageUrl)) {
+      const imgData = fs.readFileSync(imageUrl, { encoding: 'base64' });
+      const mimeType = imageUrl.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      userContent.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${mimeType};base64,${imgData}`
+        }
+      });
+    }
+
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       messages: [{ 
         role: "system", 
-        content: "Determine if this complaint is spam, fake, or abusive. Reply with ONLY 'true' (if spam) or 'false' (if valid)." 
+        content: systemPrompt
       }, { 
         role: "user", 
-        content: `Title: ${title}\nDesc: ${description}` 
+        content: userContent 
       }],
       temperature: 0
     });
     
-    isSpam = response.choices[0].message.content.trim().toLowerCase() === 'true';
+    isSpam = response.choices[0].message.content.trim().replace(/[^a-zA-Z]/g, '').toLowerCase() === 'true';
   } catch (err) {
-    // Basic rules fallback
-    if (description.length < 5 || title.toUpperCase() === title) isSpam = true; 
+    // Basic rules fallback: Local simulation for text & images since there's no API key
+    const textToAnalyze = (title + " " + description).toLowerCase();
+    
+    // Simulate image vision detection failure by looking at the filename uploaded
+    if (originalImageName) {
+        const lowerImgName = originalImageName.toLowerCase();
+        // If the user uploads a picture of a dog/cat or explicitly names it fake, simulating image mismatch
+        if (lowerImgName.includes('fake') || lowerImgName.includes('dog') || lowerImgName.includes('cat') || lowerImgName.includes('stock')) {
+            console.log("MOCK VISION: Detected severe image mismatch in fallback rules!");
+            isSpam = true;
+        }
+    }
+
+    if (description.length < 5 || 
+        title.toUpperCase() === title || 
+        textToAnalyze.includes('fake') || 
+        textToAnalyze.includes('spam') || 
+        textToAnalyze.includes('test')) {
+      isSpam = true; 
+    }
   }
   
   return { isSpam, imageValid: true, similarityScore };
