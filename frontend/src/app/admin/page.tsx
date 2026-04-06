@@ -20,6 +20,12 @@ export default function AdminDashboard() {
   const [aiLogs, setAiLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Workflow Modal State
+  const [resolutionModal, setResolutionModal] = useState<{ id: string, status: string } | null>(null);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [proofNotes, setProofNotes] = useState("");
+  const [updating, setUpdating] = useState(false);
+
   useEffect(() => {
     // Initial Fetch
     const fetchData = async () => {
@@ -41,9 +47,13 @@ export default function AdminDashboard() {
     socket.on('new_complaint_ai_processed', (data) => {
        console.log("Websocket AI Stream:", data);
        // Add dynamic log
-       setAiLogs(prev => [{ title: `Routed: ${data.category}`, desc: `AI ID ${data.id.slice(-6).toUpperCase()} Priority: ${data.priority}`, time: "Just now" }, ...prev]);
+       setAiLogs(prev => [{ 
+         title: `Routed: ${data.category}`, 
+         desc: `AI ID ${data.ticketId || data.id.slice(-6).toUpperCase()} Priority: ${data.priority} ${data.aiCostEstimate ? '| Est: ' + data.aiCostEstimate : ''}`, 
+         time: "Just now" 
+       }, ...prev]);
        // Fake increment total stats by pushing mock entity
-       setComplaints(prev => [{ _id: data.id, status: data.status, priority: data.priority }, ...prev]);
+       setComplaints(prev => [{ _id: data.id, ticketId: data.ticketId, status: data.status, priority: data.priority, category: data.category, authenticityScore: data.authenticityScore }, ...prev]);
     });
 
     socket.on('complaint_status_changed', (data) => {
@@ -54,6 +64,43 @@ export default function AdminDashboard() {
        socket.disconnect();
     };
   }, []);
+
+  const handleUpdateStatus = async (id: string, status: string) => {
+     if (status === 'resolved' || status === 'closed') {
+        setResolutionModal({ id, status });
+        return;
+     }
+     executeStatusUpdate(id, status);
+  };
+
+  const executeStatusUpdate = async (id: string, status: string, formData?: FormData) => {
+     try {
+       setUpdating(true);
+       if (!formData) {
+         formData = new FormData();
+         formData.append("status", status);
+       }
+       await api.put(`/complaints/${id}/status`, formData, { headers: { 'Content-Type': 'multipart/form-data'} });
+       setComplaints(prev => prev.map(c => c._id === id ? { ...c, status } : c));
+       setResolutionModal(null);
+       setProofFile(null);
+       setProofNotes("");
+     } catch (err) {
+       alert("Failed to update status.");
+     } finally {
+       setUpdating(false);
+     }
+  };
+
+  const submitProof = (e: React.FormEvent) => {
+     e.preventDefault();
+     if (!resolutionModal) return;
+     const formData = new FormData();
+     formData.append("status", resolutionModal.status);
+     formData.append("notes", proofNotes);
+     if (proofFile) formData.append("proofImage", proofFile);
+     executeStatusUpdate(resolutionModal.id, resolutionModal.status, formData);
+  };
   return (
     <div className="min-h-screen bg-zinc-950 text-slate-50 p-8 pb-20">
       <main className="max-w-7xl mx-auto flex flex-col gap-8">
@@ -151,23 +198,100 @@ export default function AdminDashboard() {
                 desc="Blocked 15 identical submissions from singular IP range."
                 time="14m ago"
               />
-              <LogItem 
-                title="Duplicate Merged"
-                desc="Merged 3 complaints regarding 'Main Street Water Leak' (98% similarity)"
-                time="1h ago"
-              />
-              <LogItem 
-                title="Auto-Routed to Roads"
-                desc="Visual AI confirmed 'Pothole' image input #412."
-                time="2h ago"
-              />
-
             </div>
           </div>
 
         </div>
 
+        {/* Workflow Table */}
+        <div className="mt-8 bg-zinc-900/40 border border-zinc-800/60 rounded-3xl p-6 backdrop-blur-md overflow-x-auto">
+          <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400" /> Department Workflow Board
+          </h2>
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr className="border-b border-zinc-800 text-sm text-zinc-400">
+                <th className="pb-3 px-4 font-medium">Ticket ID</th>
+                <th className="pb-3 px-4 font-medium">Department</th>
+                <th className="pb-3 px-4 font-medium">Authencity Score</th>
+                <th className="pb-3 px-4 font-medium">Status</th>
+                <th className="pb-3 px-4 font-medium text-right">Actions (Authority)</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm">
+              {complaints.length === 0 && (
+                <tr>
+                   <td colSpan={5} className="py-8 text-center text-zinc-500">No active complaints in queue.</td>
+                </tr>
+              )}
+              {complaints.map(c => (
+                 <tr key={c._id} className="border-b border-zinc-900/50 hover:bg-zinc-800/20 transition-colors">
+                   <td className="py-4 px-4 font-mono text-xs text-blue-400">{c.ticketId || c._id.slice(-6).toUpperCase()}</td>
+                   <td className="py-4 px-4 font-medium text-zinc-200">{c.category || 'Pending'}</td>
+                   <td className="py-4 px-4">
+                     {c.authenticityScore ? (
+                       <span className={`px-2 py-1 rounded text-xs ${c.authenticityScore > 80 ? 'bg-emerald-500/10 text-emerald-400' : c.authenticityScore > 40 ? 'bg-orange-500/10 text-orange-400' : 'bg-red-500/10 text-red-500'}`}>
+                         {c.authenticityScore}% Authentic
+                       </span>
+                     ) : <span className="text-zinc-600">Pending</span>}
+                   </td>
+                   <td className="py-4 px-4">
+                     <span className={`px-2 py-1 rounded-full text-xs font-semibold capitalize ${c.status === 'resolved' || c.status === 'closed' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : c.status === 'in progress' ? 'bg-blue-500/10 border border-blue-500/20 text-blue-400' : c.status === 'rejected' ? 'bg-red-500/10 border border-red-500/20 text-red-400' : 'bg-orange-500/10 border border-orange-500/20 text-orange-400'}`}>
+                       {c.status}
+                     </span>
+                   </td>
+                   <td className="py-4 px-4 text-right flex justify-end gap-2">
+                     {c.status === 'submitted' && (
+                       <button onClick={() => handleUpdateStatus(c._id, 'in progress')} className="bg-blue-600 hover:bg-blue-500 text-white text-xs px-3 py-1.5 rounded transition">Accept Work</button>
+                     )}
+                     {c.status === 'in progress' && (
+                       <button onClick={() => handleUpdateStatus(c._id, 'resolved')} className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded transition">Mark Resolved</button>
+                     )}
+                     {c.status === 'resolved' && (
+                       <button onClick={() => handleUpdateStatus(c._id, 'closed')} className="bg-zinc-700 hover:bg-zinc-600 text-white text-xs px-3 py-1.5 rounded transition">Close Finally</button>
+                     )}
+                     {['submitted', 'in progress'].includes(c.status) && (
+                       <button onClick={() => handleUpdateStatus(c._id, 'rejected')} className="bg-red-600/20 hover:bg-red-600/40 text-red-400 text-xs px-3 py-1.5 rounded transition">Reject</button>
+                     )}
+                   </td>
+                 </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
       </main>
+
+      {/* Resolution Proof Upload Modal Overlay */}
+      {resolutionModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+           <motion.form 
+             initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
+             onSubmit={submitProof}
+             className="bg-zinc-900 border border-zinc-800 p-6 rounded-2xl w-full max-w-md shadow-2xl"
+           >
+              <h3 className="text-xl font-bold mb-4">Required: {resolutionModal.status === 'resolved' ? 'Resolution Proof' : 'Closure Log'}</h3>
+              <p className="text-sm text-zinc-400 mb-4">You are updating the status to '{resolutionModal.status}'. Please upload physical proof of work.</p>
+              
+              <div className="flex flex-col gap-4">
+                 <div>
+                   <label className="block text-xs font-medium text-zinc-400 mb-1">Upload Work Image (Optional)</label>
+                   <input type="file" accept="image/*" onChange={(e)=>setProofFile(e.target.files?.[0] || null)} className="w-full text-sm text-zinc-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-zinc-800 file:text-blue-400 hover:file:bg-zinc-700" />
+                 </div>
+                 <div>
+                   <label className="block text-xs font-medium text-zinc-400 mb-1">Technician Notes</label>
+                   <textarea required value={proofNotes} onChange={(e)=>setProofNotes(e.target.value)} rows={3} placeholder="Describe the resolution officially..." className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"></textarea>
+                 </div>
+                 
+                 <div className="flex justify-end gap-3 mt-2">
+                   <button type="button" onClick={() => setResolutionModal(null)} className="px-4 py-2 text-sm text-zinc-400 hover:text-white transition">Cancel</button>
+                   <button type="submit" disabled={updating} className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-500 rounded-lg font-medium shadow-lg transition">{updating ? 'Submitting...' : 'Confirm Status Update'}</button>
+                 </div>
+              </div>
+           </motion.form>
+        </div>
+      )}
+
     </div>
   );
 }
