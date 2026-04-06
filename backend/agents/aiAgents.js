@@ -143,10 +143,22 @@ async function verificationAgent({ title, description, imageUrl, originalImageNa
  * 4. Routing Agent
  * - Maps to authoritative module
  */
-async function routingAgent(category, location) {
+async function routingAgent(description, category) {
    console.log("ROUTING AGENT: Mapping to authority route...");
-   // Usually does a DB lookup: mappedDept = await Department.findOne({name: category})
-   return { mappedDeptStr: category, status: 'dispatched' };
+   let department = 'Others';
+   const lowerDesc = description ? description.toLowerCase() : '';
+   
+   if (lowerDesc.includes('pothole') || lowerDesc.includes('road damage') || category === 'roads') {
+     department = 'Roads';
+   } else if (lowerDesc.includes('no water') || lowerDesc.includes('leakage') || category === 'water') {
+     department = 'Water';
+   } else if (lowerDesc.includes('power cut') || lowerDesc.includes('wire') || category === 'electricity') {
+     department = 'Electricity';
+   } else if (lowerDesc.includes('garbage') || lowerDesc.includes('waste') || category === 'sanitation') {
+     department = 'Sanitation';
+   }
+   
+   return { mappedDeptStr: department, status: 'dispatched' };
 }
 
 /**

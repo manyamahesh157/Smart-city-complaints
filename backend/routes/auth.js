@@ -76,6 +76,37 @@ router.post('/login', async (req, res) => {
 });
 
 /**
+ * @route POST /api/auth/authority/login
+ * @desc Authenticate Authority and generate JWT
+ * @access Public
+ */
+router.post('/authority/login', async (req, res) => {
+  try {
+     const { email, password } = req.body;
+     let user = await User.findOne({ email });
+
+     if (!user) return res.status(400).json({ success: false, msg: 'Invalid Credentials' });
+     if (user.role !== 'authority' && user.role !== 'admin') {
+       return res.status(403).json({ success: false, msg: 'Access denied. Not an authority.' });
+     }
+
+     const isMatch = await bcrypt.compare(password, user.password);
+
+     if (!isMatch) return res.status(400).json({ success: false, msg: 'Invalid Credentials' });
+
+     const payload = { user: { id: user.id, role: user.role, department: user.department } };
+    
+     jwt.sign(payload, JWT_SECRET, { expiresIn: '5d' }, (err, token) => {
+       if (err) throw err;
+       res.status(200).json({ success: true, token, role: user.role, department: user.department });
+     });
+     
+  } catch (err) {
+     res.status(500).send('Server Error');
+  }
+});
+
+/**
  * Example Middleware definition for protecting routes
  */
 const protect = (req, res, next) => {

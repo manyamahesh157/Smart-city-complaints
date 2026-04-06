@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useState } from "react";
 import { Upload, Mic, MapPin, Send } from "lucide-react";
 import api from "../../lib/api";
+import Map from "../components/Map";
 
 export default function SubmitComplaint() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,7 +59,8 @@ export default function SubmitComplaint() {
          setLocation(null);
       }
     } catch (err: any) {
-      alert("Submission blocked: " + (err.response?.data?.msg || err.message));
+      console.error(err);
+      alert("Submission blocked: " + (err?.response?.statusText || err?.message || "Unknown Error"));
     } finally {
       setIsSubmitting(false);
     }
@@ -82,12 +84,9 @@ export default function SubmitComplaint() {
           </p>
         </motion.div>
 
-        <motion.form
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
+        <form
           onSubmit={handleSubmit}
-          className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 backdrop-blur-md shadow-2xl flex flex-col gap-6"
+          className="bg-zinc-900/50 border border-zinc-800 rounded-3xl p-8 backdrop-blur-md shadow-2xl flex flex-col gap-6 animate-in fade-in duration-500"
         >
           {/* Title input */}
           <div>
@@ -151,12 +150,13 @@ export default function SubmitComplaint() {
             
           </div>
 
-          {/* Map Placeholder */}
-          <div className="h-48 rounded-xl bg-zinc-950 border border-zinc-800 flex items-center justify-center overflow-hidden relative">
-            <div className="absolute inset-0 bg-[url('https://maps.googleapis.com/maps/api/staticmap?center=40.7128,-74.0060&zoom=13&size=800x400&sensor=false')] opacity-20 bg-cover bg-center grayscale" />
-            <span className="relative z-10 text-zinc-500 text-sm flex items-center gap-2">
-              <MapPin className="w-4 h-4" /> Map View Unavailable
-            </span>
+          {/* Map Interactive View */}
+          <div className="h-48 rounded-xl bg-zinc-950 border border-zinc-800 overflow-hidden relative" style={{ zIndex: 0 }}>
+             <Map 
+               center={location ? [parseFloat(location.lat), parseFloat(location.lng)] : [40.7128, -74.0060]} 
+               zoom={location ? 16 : 13} 
+               markers={location ? [{lat: parseFloat(location.lat), lng: parseFloat(location.lng), popup: "Incident Location"}] : []}
+             />
           </div>
 
           {/* Submit Action */}
@@ -166,10 +166,10 @@ export default function SubmitComplaint() {
             className="mt-4 flex items-center justify-center gap-2 w-full py-4 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-500 rounded-xl shadow-lg shadow-blue-500/25 transition-all outline-none focus:ring-2 focus:ring-blue-500/50 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? "Processing via AI..." : "Submit Complaint"}
-            {!isSubmitting && <Send className="w-4 h-4" />}
+            {!isSubmitting ? <Send className="w-4 h-4" /> : null}
           </button>
 
-        </motion.form>
+        </form>
       </main>
     </div>
   );

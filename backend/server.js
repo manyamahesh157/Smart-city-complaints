@@ -34,6 +34,9 @@ async function initDB() {
     const uri = mongoServer.getUri();
     await mongoose.connect(uri, {});
     console.log('Automated In-Memory MongoDB booted & connected seamlessly -> ' + uri);
+    process.env.MONGO_URI = uri;
+    const seedDatabase = require('./seed.js');
+    await seedDatabase();
   } catch (err) {
     console.error('Failed to boot MongoDB cluster natively:', err);
   }

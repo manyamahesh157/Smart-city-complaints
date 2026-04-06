@@ -8,6 +8,7 @@ const UserSchema = new Schema({
   phone: { type: String },
   password: { type: String, required: true }, // Hashed
   role: { type: String, enum: ['citizen', 'authority', 'admin'], default: 'citizen' },
+  department: { type: String, enum: ['Water', 'Electricity', 'Roads', 'Sanitation', 'Others'] },
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -17,6 +18,8 @@ const ComplaintSchema = new Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
   category: { type: String, enum: ['roads', 'water', 'sanitation', 'electricity', 'others', 'fake'] },
+  department: { type: String, enum: ['Water', 'Electricity', 'Roads', 'Sanitation', 'Others'] },
+  assignedTo: { type: Schema.Types.ObjectId, ref: 'User' },
   priority: { type: String, enum: ['low', 'medium', 'high', 'critical', 'rejected'] },
   status: { type: String, enum: ['submitted', 'accepted', 'in progress', 'resolved', 'rejected'], default: 'submitted' },
   location: {
@@ -26,6 +29,7 @@ const ComplaintSchema = new Schema({
   },
   imageUrl: String,
   voiceText: String,
+  remarks: String,
   departmentAssigned: { type: Schema.Types.ObjectId, ref: 'Department' },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }

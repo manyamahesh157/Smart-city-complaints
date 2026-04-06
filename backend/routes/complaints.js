@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Complaint, ComplaintLog } = require('../models/Schemas');
+const { protect } = require('./auth');
 
 const multer = require('multer');
 const upload = multer({ dest: 'uploads/' });
@@ -69,7 +70,7 @@ router.post('/', upload.fields([
     if (verificationData.isSpam) {
       category = 'fake';
       priority = 'rejected';
-      route = { mappedDeptStr: 'none', status: 'blocked' };
+      route = { mappedDeptStr: 'Others', status: 'blocked' };
     } else {
       // 2. Classification Agent - determine category
       category = await classificationAgent(description);
@@ -78,7 +79,7 @@ router.post('/', upload.fields([
       priority = await priorityAgent(description, category, parsedLocation);
 
       // 4. Routing Agent - map to corresponding authoritative department
-      route = await routingAgent(category, parsedLocation);
+      route = await routingAgent(description, category);
     }
 
     // 5. Database Commit
@@ -89,6 +90,7 @@ router.post('/', upload.fields([
        imageUrl,
        voiceText,
        category,
+       department: route ? route.mappedDeptStr : 'Others',
        priority,
        status: verificationData.isSpam ? 'rejected' : 'submitted' 
     });
@@ -144,6 +146,24 @@ router.post('/', upload.fields([
  * @desc Get all complaints (For Admins / Authority Dashboards)
  * @access Admin
  */
+router.get('/department', protect, async (req, res) => {
+  try {
+    let query = {};
+    if (req.user.role === 'authority') {
+      query.department = req.user.department;
+    }
+    const complaints = await Complaint.find(query).sort({ createdAt: -1 });
+    res.json({ success: true, count: complaints.length, data: complaints });
+  } catch (error) {
+    res.status(500).json({ success: false, msg: 'Server error' });
+  }
+});
+
+/**
+ * @route GET /api/complaints
+ * @desc Get all complaints (For Admins / Authority Dashboards)
+ * @access Admin
+ */
 router.get('/', async (req, res) => {
   try {
     // Optionally implement generic filtering logic via req.query
@@ -181,9 +201,12 @@ router.get('/:id', async (req, res) => {
 router.put('/:id/status', async (req, res) => {
   try {
      const { status, remarks, updatedBy } = req.body;
+     const updateObj = { status, updatedAt: Date.now() };
+     if (remarks !== undefined) updateObj.remarks = remarks;
+
      const complaint = await Complaint.findByIdAndUpdate(
        req.params.id, 
-       { status, updatedAt: Date.now() }, 
+       updateObj, 
        { new: true }
      );
      
