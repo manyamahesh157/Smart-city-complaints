@@ -22,6 +22,7 @@ Provides status updates and improves accountability in resolution workflows.
 Uses intelligent agents that adapt and make decisions in real time.
 
 
+
 🏗️ System Architecture
 
 User Input Layer – Citizens submit complaints via interface
@@ -42,6 +43,7 @@ Backend: Node.js, Express.js
 AI: Open AI vision API
 
 Database: MongoDB
+
 
 
 🚀 How It Works
