@@ -26,8 +26,11 @@ Monitoring Layer – Tracks progress and updates status
 
 🛠️ Tech Stack
 Frontend: Next.js, React, css, Leaflet(for maps)
+
 Backend: Node.js, Express.js
+
 AI: Open AI vision API
+
 Database: MongoDB
 
 🚀 How It Works
