@@ -25,15 +25,15 @@ Uses intelligent agents that adapt and make decisions in real time.
 
 🏗️ System Architecture
 
-User Input Layer – Citizens submit complaints via interface
+*User Input Layer – Citizens submit complaints via interface
 
-Processing Layer – NLP model analyzes and classifies complaints
+*Processing Layer – NLP model analyzes and classifies complaints
 
-Agent Layer – AI agents prioritize and decide routing
+*Agent Layer – AI agents prioritize and decide routing
 
-Execution Layer – Complaints are forwarded to relevant authorities
+*Execution Layer – Complaints are forwarded to relevant authorities
 
-Monitoring Layer – Tracks progress and updates status
+*Monitoring Layer – Tracks progress and updates status
 
 🛠️ Tech Stack
 Frontend: Next.js, React, css, Leaflet(for maps)
