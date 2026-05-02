@@ -8,12 +8,16 @@ Our solution leverages Agentic AI to create an intelligent, autonomous system th
 💡 Key Features
 🧠 AI-Powered Complaint Analysis
 Automatically interprets and categorizes citizen complaints using natural language processing.
+
 ⚡ Dynamic Prioritization
 Assigns priority based on urgency, severity, and context rather than fixed rules.
+
 🔄 Automated Routing System
 Directs complaints to the appropriate department with minimal human intervention.
+
 📊 Real-Time Tracking & Transparency
 Provides status updates and improves accountability in resolution workflows.
+
 🤖 Agent-Based Decision Making
 Uses intelligent agents that adapt and make decisions in real time.
 
